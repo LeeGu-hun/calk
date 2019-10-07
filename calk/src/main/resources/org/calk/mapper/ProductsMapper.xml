@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.calk.mapper.ProductsMapper">
+
+	<select id="getCateAll" resultType="org.calk.domain.CateVO">
+		select distinct category from demo_product_info 
+	</select>
+
+	<select id="getProdAll" resultType="org.calk.domain.ProdVO">
+		select * from demo_product_info 
+	</select>
+	
+</mapper>

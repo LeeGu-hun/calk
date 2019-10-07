@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.calk.mapper.SaleMapper">
+
+	<insert id="regOrders">
+		<selectKey keyProperty="orderId" resultType="_int"
+			order="BEFORE">
+			SELECT DEMO_ORD_SEQ.nextval FROM dual
+		</selectKey>
+		insert into demo_orders(order_id, customer_id,
+		order_total,
+		order_timestamp, user_id)
+		values(#{orderId}, #{selCust}, #{total},
+		to_date(to_char(#{saleDate}, 'yymmdd')||' '||
+		 to_char(sysdate,'hh24miss'),'yymmdd hh24miss'),
+		#{userId})
+	</insert>
+
+	<insert id="regOrderItems">
+		<foreach collection="orderItems" item="item" index="index"
+			open="INSERT ALL " separator=" " 
+			close="SELECT * FROM DUAL">
+			into
+			demo_order_items(order_item_id, order_id,
+			product_id, unit_price, quantity)
+			values
+			(DEMO_ORDER_ITEMS_SEQ.nextval,#{orderId},
+			#{item.prodIds},#{item.prices},#{item.quantities})
+		</foreach>
+	</insert>
+
+	<sql id="dateCommon">
+		<![CDATA[
+		AND o.order_timestamp>=to_date(to_char(#{saleDateFrom}, 
+		'yymmdd')||' 000000','yymmdd hh24miss') 
+		AND o.order_timestamp<=to_date(to_char(#{saleDateTo}, 
+		'yymmdd')||' 235959', 'yymmdd hh24miss')
+		]]>
+		<include refid="criteria"/>
+	</sql>
+	<sql id="criteria">
+		<trim>
+			<if test="selCust != 'all'">
+				AND o.customer_id = #{selCust}
+			</if>
+			<if test="selCate != 'all'">
+				AND p.category = #{selCate}
+			</if>
+			<if test="selProd != 'all'">
+				AND i.product_id = #{selProd}
+			</if>
+		</trim>
+	</sql>	
+	<select id="getOrders"
+		resultType="org.calk.domain.OrderListDTO">
+		<![CDATA[
+		SELECT 
+	    o.order_id, o.customer_id, o.user_id,
+	    c.cust_first_name||' '||c.cust_last_name AS customerName,
+	    o.order_total, o.order_timestamp, u.user_name as userName
+		FROM demo_orders O, demo_customers C, demo_users U
+		WHERE o.customer_id=c.customer_id AND o.user_id=u.user_id
+		]]>
+		<include refid="dateCommon"/>
+	</select>
+	<select id="getOrderItems"
+		resultType="org.calk.domain.OrderItemsListDTO">
+		<![CDATA[
+		SELECT 
+	    o.order_id, o.customer_id, o.user_id,
+	    c.cust_first_name||' '||c.cust_last_name AS customerName,
+	    o.order_total,o.order_timestamp,u.user_name as userName,
+	    p.category, p.product_name, p.product_id
+		FROM demo_orders O, demo_customers C, demo_users U, 
+			demo_order_items i, demo_product_info p 
+		WHERE o.order_id=i.order_id and o.customer_id=c.customer_id 
+		AND o.user_id=u.user_id and i.product_id=p.product_id		
+		]]>
+		<include refid="dateCommon"/>
+	</select>
+	<select id="getOrdersWithPaging"
+		resultType="org.calk.domain.OrderListDTO">
+		<![CDATA[
+		select order_id, customer_id, user_id, customerName, 
+		order_total, order_timestamp, userName from
+    (	SELECT rownum rn, o.order_id, o.customer_id,o.user_id,
+      c.cust_first_name||' '||c.cust_last_name AS customerName,
+      o.order_total,o.order_timestamp,u.user_name as userName
+    	FROM 
+      	(SELECT /*+ index_desc(demo_orders DEMO_ORDER_PK) */ *from demo_orders) O, 
+      	demo_customers C, demo_users U
+    	WHERE o.customer_id=c.customer_id AND o.user_id=u.user_id
+		]]>
+		<include refid="dateCommon"/>
+		<![CDATA[
+			and rownum <= #{pageNum} * #{amount})
+		where rn > (#{pageNum} - 1) * #{amount}
+		]]>
+	</select>
+	<select id="getOrderItemsWithPaging"
+		resultType="org.calk.domain.OrderItemsListDTO">
+		<![CDATA[
+		select order_id,customer_id,user_id,customerName,
+		order_total,order_timestamp,userName,category,
+		product_name,product_id from
+		( SELECT 
+	    rownum rn, o.order_id, o.customer_id, o.user_id,
+	    c.cust_first_name||' '||c.cust_last_name AS customerName,
+	    o.order_total,o.order_timestamp,u.user_name as userName,
+	    p.category, p.product_name, p.product_id
+		FROM demo_orders O, demo_customers C, demo_users U, 
+			demo_order_items i, demo_product_info p 
+		WHERE o.order_id=i.order_id and o.customer_id=c.customer_id 
+		AND o.user_id=u.user_id and i.product_id=p.product_id		
+		]]>
+		<include refid="dateCommon"/>
+		<![CDATA[
+			and rownum <= #{pageNum} * #{amount})
+		where rn > (#{pageNum} - 1) * #{amount}
+		]]>
+	</select>
+	<select id="getOrdersTotalCount" resultType="_int">
+		<![CDATA[
+		SELECT count(*)
+		FROM demo_orders O, demo_customers C, demo_users U
+		WHERE o.customer_id=c.customer_id AND o.user_id=u.user_id
+		]]>
+		<include refid="dateCommon"/>
+	</select>
+	<select id="getOrderItemsTotalCount" resultType="_int">
+		<![CDATA[
+		SELECT count(*)
+		FROM demo_orders O, demo_customers C, demo_users U, 
+			demo_order_items i, demo_product_info p 
+		WHERE o.order_id=i.order_id and o.customer_id=c.customer_id 
+		AND o.user_id=u.user_id and i.product_id=p.product_id		
+		]]>
+		<include refid="dateCommon"/>
+	</select>
+</mapper>
